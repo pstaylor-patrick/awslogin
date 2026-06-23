@@ -3,9 +3,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, "..");
 
-export const installScript = resolve(here, "..", "install.sh");
-export const skillSource = resolve(here, "..", "SKILL.md");
+export const installScript = join(repoRoot, "install.sh");
+export const skillSource = join(repoRoot, "SKILL.md");
 
 export function skillPaths(home) {
   const skillDir = join(home, ".claude", "skills", "aws");
