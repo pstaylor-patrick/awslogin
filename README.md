@@ -36,7 +36,7 @@ No argument: refresh every saved profile in sequence. Named argument: force-refr
 ```bash
 npm install
 npm test          # run once
-npm run coverage  # enforces 90/90/90/80 line/function/statement/branch thresholds
+npm run coverage  # enforces coverage thresholds (see vitest.config.js)
 ```
 
-CI runs `npm run coverage` on every push to `main` and on all pull requests.
+CI runs `npm run coverage` on every push to `main` and on pull requests targeting `main`.
