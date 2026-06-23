@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, lstatSync, readlinkSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, lstatSync, readlinkSync, writeFileSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { run, skillPaths, skillSource } from "../src/installer.js";
@@ -38,9 +38,11 @@ describe("install.sh", () => {
   it("overwrites a pre-existing wrong symlink (ln -sfn behavior)", () => {
     const { skillDir } = skillPaths(home);
     mkdirSync(skillDir, { recursive: true });
-    run({ home });
-    writeFileSync(join(home, "stale"), "x");
-    run({ home });
+    const stale = join(home, "stale");
+    writeFileSync(stale, "x");
+    symlinkSync(stale, skillLink);
+    const { status } = run({ home });
+    expect(status).toBe(0);
     expect(readlinkSync(skillLink)).toBe(skillSource);
   });
 
