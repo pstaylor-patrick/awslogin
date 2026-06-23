@@ -30,3 +30,13 @@ This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked 
 ```
 
 No argument: refresh every saved profile in sequence. Named argument: force-refresh that profile's SSO token then proceed.
+
+## Development
+
+```bash
+npm install
+npm test          # run once
+npm run coverage  # enforces 90/90/90/80 line/function/statement/branch thresholds
+```
+
+CI runs `npm run coverage` on every push to `main` and on all pull requests.
