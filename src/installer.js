@@ -7,6 +7,11 @@ const repoRoot = resolve(here, "..");
 
 export const installScript = join(repoRoot, "install.sh");
 export const skillSource = join(repoRoot, "SKILL.md");
+export const cliSource = join(repoRoot, "bin", "aws-skill");
+
+export function cliPaths(home) {
+  return { binDir: join(home, "bin"), cliLink: join(home, "bin", "aws-skill") };
+}
 
 export function skillPaths(home) {
   const skillDir = join(home, ".claude", "skills", "aws");

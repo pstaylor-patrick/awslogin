@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+// Thin ESM dispatcher. All logic is in src/.
+import { homedir } from "node:os";
+import { registerInteractive } from "../src/register.js";
+import { loadConfig, listProfiles } from "../src/config.js";
+
+const [,, cmd] = process.argv;
+try {
+  if (cmd === "register") {
+    const result = await registerInteractive({ home: homedir() });
+    console.log(`Registered profile: ${result.profile}`);
+    for (const p of result.wrote) console.log(`  wrote: ${p}`);
+  } else if (cmd === "list") {
+    const config = loadConfig(homedir());
+    for (const name of listProfiles(config)) {
+      const p = config.profiles[name];
+      console.log(`${name}  ${p.accountId}  ${p.region}  ${p.auth}${p.production ? "  [prod]" : ""}`);
+    }
+  } else {
+    process.stderr.write("Usage: aws-skill <register|list>\n");
+    process.exit(2);
+  }
+} catch (err) {
+  process.stderr.write(err.message + "\n");
+  process.exit(1);
+}
