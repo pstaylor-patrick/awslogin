@@ -36,13 +36,13 @@ The password belongs to the SSO session, not the individual profile: one login c
 
 For any `ssoSession` whose `passwordStore` has `provider === "1password"`:
 
-**Immediately before** running `aws sso login`, retrieve the password and copy it to the clipboard using the `op` wrapper from the `/op` skill (`~/code/pst/pstaylor-patrick/1password/bin/op`), not the raw `op` binary. Build a secret reference from the `passwordStore` fields as `op://<vaultId>/<itemId>/<field>`, and pass `account` through the `OP_ACCOUNT` environment variable to select the right 1Password account:
+**Immediately before** running `aws sso login`, retrieve the password and copy it to the clipboard using `op-cli`, the wrapper from the `/op` skill (resolved off PATH), not the raw `op` binary. Build a secret reference from the `passwordStore` fields as `op://<vaultId>/<itemId>/<field>`, and pass `account` through the `OP_ACCOUNT` environment variable to select the right 1Password account:
 
 ```sh
-OP_ACCOUNT="<account>" ruby ~/code/pst/pstaylor-patrick/1password/bin/op read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
+OP_ACCOUNT="<account>" op-cli read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
 ```
 
-The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript.
+The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript. If `op-cli` is not on PATH, install it from the `/op` skill's repo (`./install.sh`) or note the miss and continue with the login anyway.
 
 Tell the user the password is on their clipboard, ready to paste. If the `op` command errors (e.g., not signed in), note that and continue with the login anyway. The copy is a convenience, not a blocker.
 

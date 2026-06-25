@@ -35,7 +35,7 @@ No argument: refresh every saved profile in sequence. Named argument: force-refr
 
 An `ssoSession` may carry an optional `passwordStore`. When present, the skill copies that account's IdP password to the clipboard just before `aws sso login` opens the browser, so it is ready to paste. The store lives on the session, not the profile, because one login covers every sibling profile sharing the session.
 
-For `provider: "1password"`, the copy uses the [`op` wrapper](../1password) (the `/op` skill) and resolves `op://<vaultId>/<itemId>/<field>` with `OP_ACCOUNT` set to `account`. The item references are personal, so they live only in your untracked `~/.aws-skill/profiles.json`, never in this repo. See `profiles.example.json` for the shape.
+For `provider: "1password"`, the copy uses `op-cli` (the [`/op` skill's wrapper](../1password), installed on PATH) and resolves `op://<vaultId>/<itemId>/<field>` with `OP_ACCOUNT` set to `account`. The item references are personal, so they live only in your untracked `~/.aws-skill/profiles.json`, never in this repo. See `profiles.example.json` for the shape.
 
 ## Development
 
