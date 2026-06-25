@@ -48,6 +48,7 @@ describe("buildProfileEntry", () => {
     expect(ssoSessionEntry).toEqual({
       startUrl: "https://example.awsapps.com/start",
       region: "us-east-1",
+      passwordStore: null,
     });
   });
 
@@ -91,23 +92,24 @@ describe("buildProfileEntry", () => {
     expect(ssoSessionEntry).toBeNull();
   });
 
-  it("includes passwordStore when provided", () => {
+  it("attaches passwordStore to a new ssoSession", () => {
     const answers = {
       name: "p",
-      auth: "iam-static",
+      auth: "sso",
       accountId: "123456789012",
       region: "us-east-1",
-      roleName: null,
-      ssoSession: null,
-      ssoStartUrl: null,
-      ssoRegion: null,
-      newSsoSession: false,
+      roleName: "AdminAccess",
+      ssoSession: "my-session",
+      ssoStartUrl: "https://example.awsapps.com/start",
+      ssoRegion: "us-east-1",
+      newSsoSession: true,
       passwordStore: { provider: "1password", account: "my.1password.com", itemId: "abc", vaultId: "def", field: "password" },
       production: false,
     };
-    const { profileEntry } = buildProfileEntry(answers);
-    expect(profileEntry.passwordStore.provider).toBe("1password");
-    expect(profileEntry.passwordStore.itemId).toBe("abc");
+    const { profileEntry, ssoSessionEntry } = buildProfileEntry(answers);
+    expect(profileEntry.passwordStore).toBeUndefined();
+    expect(ssoSessionEntry.passwordStore.provider).toBe("1password");
+    expect(ssoSessionEntry.passwordStore.itemId).toBe("abc");
   });
 });
 
@@ -264,8 +266,7 @@ describe("registerInteractive", () => {
       "iam-static",          // auth
       "123456789013",        // accountId
       "us-west-2",           // region
-      // no roleName asked for iam-static
-      "n",                   // passwordStore
+      // no roleName or passwordStore asked for iam-static
     ]);
 
     const result = await registerInteractive({ home, prompt });
@@ -294,8 +295,7 @@ describe("registerInteractive", () => {
       "123456789012",        // accountId
       "us-east-1",           // region
       "AdminAccess",         // roleName
-      "my-sso",              // reuse existing session
-      "n",                   // passwordStore
+      "my-sso",              // reuse existing session (no passwordStore prompt on reuse)
     ]);
     const result2 = await registerInteractive({ home, prompt: prompt2 });
 
@@ -309,7 +309,7 @@ describe("registerInteractive", () => {
 
   it("works on first run with no prior files at all", async () => {
     const prompt = makePrompt([
-      "fresh", "iam-static", "111111111111", "eu-west-1", "n",
+      "fresh", "iam-static", "111111111111", "eu-west-1",
     ]);
     const result = await registerInteractive({ home, prompt });
     expect(result.profile).toBe("fresh");
@@ -323,7 +323,6 @@ describe("registerInteractive", () => {
       "bad-id",              // invalid accountId (re-asked)
       "123456789012",        // valid accountId
       "us-east-1",           // region
-      "n",                   // passwordStore
     ]);
     const result = await registerInteractive({ home, prompt });
     expect(result.profile).toBe("p");
@@ -332,12 +331,16 @@ describe("registerInteractive", () => {
     expect(config.profiles["p"].accountId).toBe("123456789012");
   });
 
-  it("creates a 1password passwordStore when requested", async () => {
+  it("attaches a 1password passwordStore to a new SSO session", async () => {
     const prompt = makePrompt([
       "pw-profile",          // name
-      "iam-static",          // auth
+      "sso",                 // auth
       "123456789012",        // accountId
       "us-east-1",           // region
+      "AdminAccess",         // roleName
+      "pw-session",          // SSO session name (no existing)
+      "https://example.awsapps.com/start", // startUrl
+      "us-east-1",           // ssoRegion
       "y",                   // want passwordStore
       "1password",           // provider
       "my.1password.com",    // account
@@ -348,8 +351,9 @@ describe("registerInteractive", () => {
     const result = await registerInteractive({ home, prompt });
     const raw = readFileSync(join(home, ".aws-skill", "profiles.json"), "utf8");
     const config = JSON.parse(raw);
-    expect(config.profiles["pw-profile"].passwordStore.provider).toBe("1password");
-    expect(config.profiles["pw-profile"].passwordStore.itemId).toBe("item123");
+    expect(config.profiles["pw-profile"].passwordStore).toBeUndefined();
+    expect(config.ssoSessions["pw-session"].passwordStore.provider).toBe("1password");
+    expect(config.ssoSessions["pw-session"].passwordStore.itemId).toBe("item123");
     expect(() => validateConfig(config)).not.toThrow();
     expect(result.wrote).toContain(join(home, ".aws-skill", "profiles.json"));
   });

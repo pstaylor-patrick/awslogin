@@ -62,18 +62,6 @@ export function validateConfig(obj) {
         throw new Error(`Profile '${name}': iam-static auth must have null ssoSession`);
       }
     }
-    if (profile.passwordStore != null) {
-      if (typeof profile.passwordStore.provider !== "string" || !profile.passwordStore.provider) {
-        throw new Error(`Profile '${name}': passwordStore.provider must be a non-empty string`);
-      }
-      if (profile.passwordStore.provider === "1password") {
-        for (const field of ["account", "itemId", "vaultId", "field"]) {
-          if (typeof profile.passwordStore[field] !== "string" || !profile.passwordStore[field]) {
-            throw new Error(`Profile '${name}': passwordStore.${field} must be a non-empty string`);
-          }
-        }
-      }
-    }
   }
 
   for (const [name, session] of Object.entries(result.ssoSessions)) {
@@ -83,9 +71,26 @@ export function validateConfig(obj) {
     if (typeof session.region !== "string" || !session.region) {
       throw new Error(`ssoSession '${name}': region must be a non-empty string`);
     }
+    validatePasswordStore(`ssoSession '${name}'`, session.passwordStore);
   }
 
   return result;
+}
+
+// passwordStore lives on the ssoSession: a single SSO login covers every sibling
+// profile sharing the session, so the password to copy is per-session, not per-profile.
+function validatePasswordStore(label, passwordStore) {
+  if (passwordStore == null) return;
+  if (typeof passwordStore.provider !== "string" || !passwordStore.provider) {
+    throw new Error(`${label}: passwordStore.provider must be a non-empty string`);
+  }
+  if (passwordStore.provider === "1password") {
+    for (const field of ["account", "itemId", "vaultId", "field"]) {
+      if (typeof passwordStore[field] !== "string" || !passwordStore[field]) {
+        throw new Error(`${label}: passwordStore.${field} must be a non-empty string`);
+      }
+    }
+  }
 }
 
 export function listProfiles(config) {

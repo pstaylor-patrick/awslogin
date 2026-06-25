@@ -31,6 +31,12 @@ This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked 
 
 No argument: refresh every saved profile in sequence. Named argument: force-refresh that profile's SSO token then proceed.
 
+## Password copy before SSO login
+
+An `ssoSession` may carry an optional `passwordStore`. When present, the skill copies that account's IdP password to the clipboard just before `aws sso login` opens the browser, so it is ready to paste. The store lives on the session, not the profile, because one login covers every sibling profile sharing the session.
+
+For `provider: "1password"`, the copy uses the [`op` wrapper](../1password) (the `/op` skill) and resolves `op://<vaultId>/<itemId>/<field>` with `OP_ACCOUNT` set to `account`. The item references are personal, so they live only in your untracked `~/.aws-skill/profiles.json`, never in this repo. See `profiles.example.json` for the shape.
+
 ## Development
 
 ```bash

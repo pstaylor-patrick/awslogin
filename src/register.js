@@ -11,7 +11,6 @@ export function buildProfileEntry(answers) {
     auth: answers.auth,
     production: answers.production ?? false,
     ssoSession: answers.ssoSession ?? null,
-    passwordStore: answers.passwordStore ?? null,
   };
 
   let ssoSessionEntry = null;
@@ -19,10 +18,27 @@ export function buildProfileEntry(answers) {
     ssoSessionEntry = {
       startUrl: answers.ssoStartUrl,
       region: answers.ssoRegion,
+      passwordStore: answers.passwordStore ?? null,
     };
   }
 
   return { profileEntry, ssoSessionEntry };
+}
+
+// The password is the IdP login for the SSO session, so we only ask when a new
+// session is being created. Returns null when the user declines.
+export async function askPasswordStore(ask) {
+  const wants = (await ask("Add password store for this SSO session? (y/n): ")).trim().toLowerCase();
+  if (wants !== "y" && wants !== "yes") return null;
+
+  const provider = (await ask("Provider (e.g. 1password): ")).trim();
+  if (provider !== "1password") return { provider };
+
+  const account = (await ask("1Password account (e.g. my.1password.com): ")).trim();
+  const itemId = (await ask("Item ID: ")).trim();
+  const vaultId = (await ask("Vault ID: ")).trim();
+  const field = (await ask("Field (e.g. password): ")).trim();
+  return { provider, account, itemId, vaultId, field };
 }
 
 export function renderAwsConfigStanza(answers, existingAwsConfig) {
@@ -107,6 +123,7 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
     let ssoStartUrl = null;
     let ssoRegion = null;
     let newSsoSession = false;
+    let passwordStore = null;
 
     if (auth === "sso") {
       roleName = (await ask("Role name: ")).trim();
@@ -131,21 +148,7 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
         ssoSession = (await ask("SSO session name: ")).trim();
         ssoStartUrl = (await ask("SSO start URL (https://...): ")).trim();
         ssoRegion = (await ask("SSO region: ")).trim();
-      }
-    }
-
-    let passwordStore = null;
-    const wantsPwStore = (await ask("Add password store? (y/n): ")).trim().toLowerCase();
-    if (wantsPwStore === "y" || wantsPwStore === "yes") {
-      const provider = (await ask("Provider (e.g. 1password): ")).trim();
-      if (provider === "1password") {
-        const account = (await ask("1Password account (e.g. my.1password.com): ")).trim();
-        const itemId = (await ask("Item ID: ")).trim();
-        const vaultId = (await ask("Vault ID: ")).trim();
-        const field = (await ask("Field (e.g. password): ")).trim();
-        passwordStore = { provider, account, itemId, vaultId, field };
-      } else {
-        passwordStore = { provider };
+        passwordStore = await askPasswordStore(ask);
       }
     }
 

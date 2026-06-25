@@ -1,8 +1,9 @@
 ---
 description: Set AWS profile context and run CLI operations against the named account.
-argument-hint: [profile-name]
+argument-hint:
+- profile-name
+name: aws
 ---
-
 # /aws
 
 The user has invoked `/aws $ARGUMENTS`.
@@ -18,8 +19,8 @@ cat ~/.aws-skill/profiles.json
 If the file is missing (cat exits non-zero or reports "No such file"), tell the user to run `aws-skill register` and stop. Do not proceed further.
 
 Parse the JSON to discover:
-- **profiles**: each entry's `accountId`, `region`, `roleName`, `auth`, `ssoSession`, `passwordStore`, and `production` flag
-- **ssoSessions**: each session's `startUrl` and `region`
+- **profiles**: each entry's `accountId`, `region`, `roleName`, `auth`, `ssoSession`, and `production` flag
+- **ssoSessions**: each session's `startUrl`, `region`, and optional `passwordStore`
 - **sibling groups**: which profiles share the same `ssoSession` value (a single SSO login covers all siblings in a group)
 
 ## How SSO logins work
@@ -31,9 +32,17 @@ Parse the JSON to discover:
 
 ## Copying the account password before SSO login
 
-For any profile whose `ssoSession` entry has a `passwordStore` with `provider === "1password"`:
+The password belongs to the SSO session, not the individual profile: one login covers every sibling profile in the group, so each `ssoSession` carries at most one `passwordStore`.
 
-**Immediately before** running `aws sso login`, retrieve the password and copy it to the clipboard using the 1Password CLI (`op`). Construct the command from the profile's `passwordStore` fields: use `itemId` as the item reference, `vaultId` with `--vault`, `account` with `--account`, and `field` as the label for `--fields`. Pipe the output through `tr -d '\n'` into `pbcopy`. Do not add `--reveal`, do not `echo` the value, and do not let the secret appear in the terminal transcript.
+For any `ssoSession` whose `passwordStore` has `provider === "1password"`:
+
+**Immediately before** running `aws sso login`, retrieve the password and copy it to the clipboard using the `op` wrapper from the `/op` skill (`~/code/pst/pstaylor-patrick/1password/bin/op`), not the raw `op` binary. Build a secret reference from the `passwordStore` fields as `op://<vaultId>/<itemId>/<field>`, and pass `account` through the `OP_ACCOUNT` environment variable to select the right 1Password account:
+
+```sh
+OP_ACCOUNT="<account>" ruby ~/code/pst/pstaylor-patrick/1password/bin/op read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
+```
+
+The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript.
 
 Tell the user the password is on their clipboard, ready to paste. If the `op` command errors (e.g., not signed in), note that and continue with the login anyway. The copy is a convenience, not a blocker.
 
@@ -47,7 +56,7 @@ If no argument (or an unrecognized one) is given, do **not** just list profiles 
 
 1. Group SSO profiles by `ssoSession`. For each unique session group:
    a. Announce which profiles this session covers.
-   b. If the session's profiles have a `passwordStore`, copy the password to the clipboard (see above) before the login.
+   b. If the session has a `passwordStore`, copy the password to the clipboard (see above) before the login.
    c. Run `aws sso login --profile <any-profile-in-the-group>` (foreground; ask the user to approve promptly; note the password is on their clipboard if applicable). This refreshes all profiles sharing that session.
    d. Verify each profile in the group: `aws sts get-caller-identity --profile <name>`; report account and role.
 

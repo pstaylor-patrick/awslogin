@@ -6,14 +6,7 @@
       "roleName": "AdministratorAccess",
       "auth": "sso",
       "production": false,
-      "ssoSession": "my-sso",
-      "passwordStore": {
-        "provider": "1password",
-        "account": "my.1password.com",
-        "itemId": "REPLACE_ME",
-        "vaultId": "REPLACE_ME",
-        "field": "password"
-      }
+      "ssoSession": "my-sso"
     },
     "my-iam-account": {
       "accountId": "000000000000",
@@ -21,14 +14,20 @@
       "roleName": null,
       "auth": "iam-static",
       "production": true,
-      "ssoSession": null,
-      "passwordStore": null
+      "ssoSession": null
     }
   },
   "ssoSessions": {
     "my-sso": {
       "startUrl": "https://REPLACE_ME.awsapps.com/start",
-      "region": "us-east-1"
+      "region": "us-east-1",
+      "passwordStore": {
+        "provider": "1password",
+        "account": "my.1password.com",
+        "itemId": "REPLACE_ME",
+        "vaultId": "REPLACE_ME",
+        "field": "password"
+      }
     }
   }
 }

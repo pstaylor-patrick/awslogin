@@ -24,13 +24,13 @@ const VALID_SSO_CONFIG = {
       roleName: "AdminAccess",
       auth: "sso",
       ssoSession: "my-session",
-      passwordStore: null,
     },
   },
   ssoSessions: {
     "my-session": {
       startUrl: "https://example.awsapps.com/start",
       region: "us-east-1",
+      passwordStore: null,
     },
   },
 };
@@ -43,7 +43,6 @@ const VALID_IAM_CONFIG = {
       roleName: null,
       auth: "iam-static",
       ssoSession: null,
-      passwordStore: null,
     },
   },
   ssoSessions: {},
@@ -181,59 +180,53 @@ describe("validateConfig", () => {
     expect(() => validateConfig(bad)).toThrow(/iam-static auth must have null ssoSession/);
   });
 
-  it("allows null passwordStore", () => {
+  it("allows null passwordStore on a session", () => {
     const result = validateConfig(VALID_SSO_CONFIG);
-    expect(result.profiles["my-sso"].passwordStore).toBeNull();
+    expect(result.ssoSessions["my-session"].passwordStore).toBeNull();
   });
 
   it("throws when passwordStore has empty provider", () => {
     const bad = {
-      profiles: {
-        p: {
-          accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s",
-          passwordStore: { provider: "" },
-        },
+      profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },
+      ssoSessions: {
+        s: { startUrl: "https://x.example.com/start", region: "us-east-1", passwordStore: { provider: "" } },
       },
-      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1" } },
     };
     expect(() => validateConfig(bad)).toThrow(/passwordStore.provider must be a non-empty string/);
   });
 
   it("accepts non-1password provider with only provider field", () => {
     const cfg = {
-      profiles: {
-        p: {
-          accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s",
-          passwordStore: { provider: "keychain" },
-        },
+      profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },
+      ssoSessions: {
+        s: { startUrl: "https://x.example.com/start", region: "us-east-1", passwordStore: { provider: "keychain" } },
       },
-      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1" } },
     };
     expect(() => validateConfig(cfg)).not.toThrow();
   });
 
   it("throws when 1password passwordStore is missing itemId", () => {
     const bad = {
-      profiles: {
-        p: {
-          accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s",
+      profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },
+      ssoSessions: {
+        s: {
+          startUrl: "https://x.example.com/start", region: "us-east-1",
           passwordStore: { provider: "1password", account: "my.1password.com", itemId: "", vaultId: "v", field: "password" },
         },
       },
-      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1" } },
     };
     expect(() => validateConfig(bad)).toThrow(/passwordStore.itemId must be a non-empty string/);
   });
 
   it("accepts valid 1password passwordStore", () => {
     const cfg = {
-      profiles: {
-        p: {
-          accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s",
+      profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },
+      ssoSessions: {
+        s: {
+          startUrl: "https://x.example.com/start", region: "us-east-1",
           passwordStore: { provider: "1password", account: "my.1password.com", itemId: "abc", vaultId: "def", field: "password" },
         },
       },
-      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1" } },
     };
     expect(() => validateConfig(cfg)).not.toThrow();
   });
@@ -293,8 +286,8 @@ describe("listProfiles", () => {
   it("returns multiple profile names", () => {
     const cfg = {
       profiles: {
-        a: { accountId: "123456789012", region: "us-east-1", roleName: null, auth: "iam-static", ssoSession: null, passwordStore: null },
-        b: { accountId: "123456789013", region: "us-west-2", roleName: null, auth: "iam-static", ssoSession: null, passwordStore: null },
+        a: { accountId: "123456789012", region: "us-east-1", roleName: null, auth: "iam-static", ssoSession: null },
+        b: { accountId: "123456789013", region: "us-west-2", roleName: null, auth: "iam-static", ssoSession: null },
       },
       ssoSessions: {},
     };
