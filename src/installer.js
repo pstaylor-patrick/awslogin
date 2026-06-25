@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
 
-export const installScript = join(repoRoot, "install.sh");
+export const installScript = join(repoRoot, "install.rb");
 export const skillSource = join(repoRoot, "SKILL.md");
 export const cliSource = join(repoRoot, "bin", "aws-skill");
 
@@ -20,7 +20,7 @@ export function skillPaths(home) {
 
 export function run({ home, uninstall = false }) {
   const args = uninstall ? ["--uninstall"] : [];
-  const result = spawnSync("bash", [installScript, ...args], {
+  const result = spawnSync("ruby", [installScript, ...args], {
     env: { ...process.env, HOME: home },
     encoding: "utf8"
   });

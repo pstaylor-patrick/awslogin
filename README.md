@@ -5,7 +5,7 @@ Claude Code skill for working with AWS profiles. Sets the active profile context
 ## Installation
 
 ```bash
-./install.sh
+ruby install.rb
 ```
 
 This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked into `~/.claude/skills/aws/`).

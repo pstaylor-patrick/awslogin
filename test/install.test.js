@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(home, { recursive: true, force: true }); });
 
-describe("install.sh", () => {
+describe("install.rb", () => {
   it("exits 0 and creates a symlink at ~/.claude/skills/aws/SKILL.md", () => {
     const { status } = run({ home });
     expect(status).toBe(0);
@@ -61,7 +61,7 @@ describe("install.sh", () => {
   });
 });
 
-describe("install.sh CLI symlink", () => {
+describe("install.rb CLI symlink", () => {
   it("install creates symlink at ~/bin/aws-skill pointing at cliSource", () => {
     run({ home });
     const { cliLink } = cliPaths(home);

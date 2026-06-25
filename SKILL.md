@@ -42,7 +42,7 @@ For any `ssoSession` whose `passwordStore` has `provider === "1password"`:
 OP_ACCOUNT="<account>" op-cli read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
 ```
 
-The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript. If `op-cli` is not on PATH, install it from the `/op` skill's repo (`./install.sh`) or note the miss and continue with the login anyway.
+The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript. If `op-cli` is not on PATH, install it from the `/op` skill's repo (`ruby install.rb`) or note the miss and continue with the login anyway.
 
 Tell the user the password is on their clipboard, ready to paste. If the `op` command errors (e.g., not signed in), note that and continue with the login anyway. The copy is a convenience, not a blocker.
 
