@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, lstatSync, readlinkSync, writeFileSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run, skillPaths, skillSource } from "../src/installer.js";
+import { run, skillPaths, skillSource, cliPaths, cliSource } from "../src/installer.js";
 
 let home, skillLink;
 beforeEach(() => {
@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 afterEach(() => { rmSync(home, { recursive: true, force: true }); });
 
-describe("install.sh", () => {
+describe("install.rb", () => {
   it("exits 0 and creates a symlink at ~/.claude/skills/aws/SKILL.md", () => {
     const { status } = run({ home });
     expect(status).toBe(0);
@@ -58,5 +58,44 @@ describe("install.sh", () => {
     const { status, stdout } = run({ home, uninstall: true });
     expect(status).toBe(0);
     expect(stdout).toContain("Nothing to uninstall");
+  });
+});
+
+describe("install.rb CLI symlink", () => {
+  it("install creates symlink at ~/bin/aws-skill pointing at cliSource", () => {
+    run({ home });
+    const { cliLink } = cliPaths(home);
+    expect(lstatSync(cliLink).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(cliLink)).toBe(cliSource);
+  });
+
+  it("install creates ~/bin/ if it does not exist", () => {
+    const { binDir, cliLink } = cliPaths(home);
+    // binDir should not exist yet
+    expect(() => lstatSync(binDir)).toThrow();
+    run({ home });
+    expect(lstatSync(binDir).isDirectory()).toBe(true);
+    expect(lstatSync(cliLink).isSymbolicLink()).toBe(true);
+  });
+
+  it("stdout contains 'Installed aws-skill CLI ->'", () => {
+    const { stdout } = run({ home });
+    expect(stdout).toContain("Installed aws-skill CLI ->");
+  });
+
+  it("uninstall removes the CLI symlink", () => {
+    run({ home });
+    const { cliLink } = cliPaths(home);
+    expect(lstatSync(cliLink).isSymbolicLink()).toBe(true);
+    run({ home, uninstall: true });
+    expect(() => lstatSync(cliLink)).toThrow();
+  });
+
+  it("idempotent second install leaves correct CLI symlink", () => {
+    run({ home });
+    run({ home });
+    const { cliLink } = cliPaths(home);
+    expect(lstatSync(cliLink).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(cliLink)).toBe(cliSource);
   });
 });
