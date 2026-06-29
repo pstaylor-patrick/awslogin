@@ -1,4 +1,7 @@
 {
+  "preferences": {
+    "onepasswordTool": "op"
+  },
   "profiles": {
     "my-sso-account": {
       "accountId": "000000000000",
