@@ -22,6 +22,7 @@ Parse the JSON to discover:
 - **profiles**: each entry's `accountId`, `region`, `roleName`, `auth`, `ssoSession`, and `production` flag
 - **ssoSessions**: each session's `startUrl`, `region`, and optional `passwordStore`
 - **sibling groups**: which profiles share the same `ssoSession` value (a single SSO login covers all siblings in a group)
+- **preferences** (optional top-level key): personal overrides such as `onepasswordTool` (the binary used to read 1Password secrets; defaults to `op`)
 
 ## How SSO logins work
 
@@ -36,15 +37,20 @@ The password belongs to the SSO session, not the individual profile: one login c
 
 For any `ssoSession` whose `passwordStore` has `provider === "1password"`:
 
-**Immediately before** running `aws sso login`, retrieve the password and copy it to the clipboard using `op-cli`, the wrapper from the `/op` skill (resolved off PATH), not the raw `op` binary. Build a secret reference from the `passwordStore` fields as `op://<vaultId>/<itemId>/<field>`, and pass `account` through the `OP_ACCOUNT` environment variable to select the right 1Password account:
+**Immediately before** running `aws sso login`, copy the password to the clipboard. Determine the tool to use:
+
+1. Check `preferences.onepasswordTool` in `profiles.json`. If set, use that binary.
+2. Otherwise default to `op` (the standard 1Password CLI).
+
+Then run:
 
 ```sh
-OP_ACCOUNT="<account>" op-cli read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
+OP_ACCOUNT="<account>" <tool> read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
 ```
 
-The wrapper masks secrets by default and caches resolved references, so TouchID only prompts once per window even across same-day refreshes. Do not `echo` the value or let it land in the terminal transcript. If `op-cli` is not on PATH, install it from the `/op` skill's repo (`ruby install.rb`) or note the miss and continue with the login anyway.
+Do not `echo` the value or let it land in the terminal transcript. If the command fails, note the failure and continue with the login anyway.
 
-Tell the user the password is on their clipboard, ready to paste. If the `op` command errors (e.g., not signed in), note that and continue with the login anyway. The copy is a convenience, not a blocker.
+Tell the user the password is on their clipboard.
 
 ## Production caution
 
