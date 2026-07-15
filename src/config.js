@@ -72,6 +72,14 @@ export function validateConfig(obj) {
       throw new Error(`ssoSession '${name}': region must be a non-empty string`);
     }
     validatePasswordStore(`ssoSession '${name}'`, session.passwordStore);
+    if (session.payerProfile != null) {
+      if (typeof session.payerProfile !== "string" || !session.payerProfile) {
+        throw new Error(`ssoSession '${name}': payerProfile must be a non-empty string`);
+      }
+      if (!result.profiles[session.payerProfile]) {
+        throw new Error(`ssoSession '${name}': payerProfile references unknown profile '${session.payerProfile}'`);
+      }
+    }
   }
 
   return result;

@@ -49,7 +49,27 @@ describe("buildProfileEntry", () => {
       startUrl: "https://example.awsapps.com/start",
       region: "us-east-1",
       passwordStore: null,
+      payerProfile: null,
     });
+  });
+
+  it("marks the new session's payerProfile when the profile is the org payer account", () => {
+    const answers = {
+      name: "org-payer",
+      auth: "sso",
+      accountId: "123456789012",
+      region: "us-east-1",
+      roleName: "AdminAccess",
+      ssoSession: "my-session",
+      ssoStartUrl: "https://example.awsapps.com/start",
+      ssoRegion: "us-east-1",
+      newSsoSession: true,
+      passwordStore: null,
+      isPayerAccount: true,
+      production: false,
+    };
+    const { ssoSessionEntry } = buildProfileEntry(answers);
+    expect(ssoSessionEntry.payerProfile).toBe("org-payer");
   });
 
   it("returns null ssoSessionEntry when reusing existing session", () => {
@@ -216,6 +236,23 @@ describe("mergeIntoConfig", () => {
     const result = mergeIntoConfig(emptyConfig, { profileEntry: {}, ssoSessionEntry: session, name: "p", ssoSessionName: null });
     expect(result.ssoSessions).toEqual({});
   });
+
+  it("patches payerProfile onto a reused session", () => {
+    const existing = {
+      profiles: {},
+      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1", passwordStore: null } },
+    };
+    const profile = { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" };
+    const result = mergeIntoConfig(existing, {
+      profileEntry: profile,
+      ssoSessionEntry: null,
+      name: "org-payer",
+      ssoSessionName: null,
+      payerProfilePatch: { ssoSessionName: "s", profileName: "org-payer" },
+    });
+    expect(result.ssoSessions["s"].payerProfile).toBe("org-payer");
+    expect(result.ssoSessions["s"].startUrl).toBe("https://x.example.com/start");
+  });
 });
 
 // ---- registerInteractive ----
@@ -356,5 +393,51 @@ describe("registerInteractive", () => {
     expect(config.ssoSessions["pw-session"].passwordStore.itemId).toBe("item123");
     expect(() => validateConfig(config)).not.toThrow();
     expect(result.wrote).toContain(join(home, ".aws-skill", "profiles.json"));
+  });
+
+  it("sets payerProfile on a new session when registered as the org payer account", async () => {
+    const prompt = makePrompt([
+      "org-payer",           // name
+      "sso",                 // auth
+      "123456789012",        // accountId
+      "us-east-1",           // region
+      "AdminAccess",         // roleName
+      "my-sso",              // SSO session name (no existing)
+      "https://example.awsapps.com/start", // startUrl
+      "us-east-1",           // ssoRegion
+      "n",                   // passwordStore
+      "y",                   // is payer account
+    ]);
+    const result = await registerInteractive({ home, prompt });
+    const raw = readFileSync(join(home, ".aws-skill", "profiles.json"), "utf8");
+    const config = JSON.parse(raw);
+    expect(() => validateConfig(config)).not.toThrow();
+    expect(config.ssoSessions["my-sso"].payerProfile).toBe("org-payer");
+    expect(result.profile).toBe("org-payer");
+  });
+
+  it("patches payerProfile onto an existing session when reused", async () => {
+    const prompt1 = makePrompt([
+      "member-profile", "sso", "123456789012", "us-east-1", "AdminAccess",
+      "my-sso", "https://example.awsapps.com/start", "us-east-1", "n", "n",
+    ]);
+    await registerInteractive({ home, prompt: prompt1 });
+
+    const prompt2 = makePrompt([
+      "org-payer",           // name
+      "sso",                 // auth
+      "999999999999",        // accountId (org management account)
+      "us-east-1",           // region
+      "AdminAccess",         // roleName
+      "my-sso",              // reuse existing session
+      "y",                   // is payer account
+    ]);
+    await registerInteractive({ home, prompt: prompt2 });
+
+    const raw = readFileSync(join(home, ".aws-skill", "profiles.json"), "utf8");
+    const config = JSON.parse(raw);
+    expect(() => validateConfig(config)).not.toThrow();
+    expect(config.ssoSessions["my-sso"].payerProfile).toBe("org-payer");
+    expect(config.profiles["member-profile"].accountId).toBe("123456789012");
   });
 });

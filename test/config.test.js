@@ -239,6 +239,30 @@ describe("validateConfig", () => {
     expect(() => validateConfig(bad)).toThrow(/startUrl must start with https/);
   });
 
+  it("accepts a payerProfile that references an existing profile", () => {
+    const cfg = {
+      profiles: {
+        member: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" },
+        payer: { accountId: "999999999999", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" },
+      },
+      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1", payerProfile: "payer" } },
+    };
+    expect(() => validateConfig(cfg)).not.toThrow();
+  });
+
+  it("throws when payerProfile references an unknown profile", () => {
+    const bad = {
+      profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },
+      ssoSessions: { s: { startUrl: "https://x.example.com/start", region: "us-east-1", payerProfile: "missing" } },
+    };
+    expect(() => validateConfig(bad)).toThrow(/payerProfile references unknown profile 'missing'/);
+  });
+
+  it("allows null payerProfile on a session", () => {
+    const result = validateConfig(VALID_SSO_CONFIG);
+    expect(result.ssoSessions["my-session"].payerProfile).toBeUndefined();
+  });
+
   it("throws on ssoSession with empty region", () => {
     const bad = {
       profiles: { p: { accountId: "123456789012", region: "us-east-1", roleName: "Admin", auth: "sso", ssoSession: "s" } },

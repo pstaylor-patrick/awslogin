@@ -19,10 +19,20 @@ export function buildProfileEntry(answers) {
       startUrl: answers.ssoStartUrl,
       region: answers.ssoRegion,
       passwordStore: answers.passwordStore ?? null,
+      payerProfile: answers.isPayerAccount ? answers.name : null,
     };
   }
 
   return { profileEntry, ssoSessionEntry };
+}
+
+// The payer/management account of an AWS Organization is what Cost Explorer must be
+// queried against for linked member accounts that don't have CE enabled themselves.
+export async function askIsPayerAccount(ask) {
+  const wants = (
+    await ask("Is this the org's payer/management account, for cross-account Cost Explorer? (y/n): ")
+  ).trim().toLowerCase();
+  return wants === "y" || wants === "yes";
 }
 
 // The password is the IdP login for the SSO session, so we only ask when a new
@@ -74,11 +84,22 @@ export function renderAwsConfigStanza(answers, existingAwsConfig) {
   return stanza;
 }
 
-export function mergeIntoConfig(existingConfig, { profileEntry, ssoSessionEntry, name, ssoSessionName }) {
+export function mergeIntoConfig(existingConfig, { profileEntry, ssoSessionEntry, name, ssoSessionName, payerProfilePatch }) {
   const profiles = { ...existingConfig.profiles, [name]: profileEntry };
   let ssoSessions = { ...existingConfig.ssoSessions };
   if (ssoSessionEntry && ssoSessionName) {
     ssoSessions = { ...ssoSessions, [ssoSessionName]: ssoSessionEntry };
+  }
+  // Reusing an existing session: patch its payerProfile in place instead of
+  // replacing the whole entry, since ssoSessionEntry is null in that case.
+  if (payerProfilePatch && ssoSessions[payerProfilePatch.ssoSessionName]) {
+    ssoSessions = {
+      ...ssoSessions,
+      [payerProfilePatch.ssoSessionName]: {
+        ...ssoSessions[payerProfilePatch.ssoSessionName],
+        payerProfile: payerProfilePatch.profileName,
+      },
+    };
   }
   return { ...existingConfig, profiles, ssoSessions };
 }
@@ -124,6 +145,7 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
     let ssoRegion = null;
     let newSsoSession = false;
     let passwordStore = null;
+    let isPayerAccount = false;
 
     if (auth === "sso") {
       roleName = (await ask("Role name: ")).trim();
@@ -150,6 +172,8 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
         ssoRegion = (await ask("SSO region: ")).trim();
         passwordStore = await askPasswordStore(ask);
       }
+
+      isPayerAccount = await askIsPayerAccount(ask);
     }
 
     const answers = {
@@ -163,6 +187,7 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
       ssoRegion,
       newSsoSession,
       passwordStore,
+      isPayerAccount,
       production: false,
     };
 
@@ -172,6 +197,7 @@ export async function registerInteractive({ home, prompt: promptFn } = {}) {
       ssoSessionEntry,
       name,
       ssoSessionName: newSsoSession ? ssoSession : null,
+      payerProfilePatch: !newSsoSession && isPayerAccount ? { ssoSessionName: ssoSession, profileName: name } : null,
     });
 
     // Write profiles.json with restricted permissions

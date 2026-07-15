@@ -20,7 +20,7 @@ If the file is missing (cat exits non-zero or reports "No such file"), tell the 
 
 Parse the JSON to discover:
 - **profiles**: each entry's `accountId`, `region`, `roleName`, `auth`, `ssoSession`, and `production` flag
-- **ssoSessions**: each session's `startUrl`, `region`, and optional `passwordStore`
+- **ssoSessions**: each session's `startUrl`, `region`, optional `passwordStore`, and optional `payerProfile`
 - **sibling groups**: which profiles share the same `ssoSession` value (a single SSO login covers all siblings in a group)
 - **preferences** (optional top-level key): personal overrides such as `onepasswordTool` (the binary used to read 1Password secrets; defaults to `op`)
 
@@ -51,6 +51,23 @@ OP_ACCOUNT="<account>" <tool> read "op://<vaultId>/<itemId>/<field>" | tr -d '\n
 Do not `echo` the value or let it land in the terminal transcript. If the command fails, note the failure and continue with the login anyway.
 
 Tell the user the password is on their clipboard.
+
+## Cross-account billing audits
+
+Member accounts in an AWS Organization often have Cost Explorer disabled at the account
+level (`aws ce get-cost-and-usage` returns `AccessDeniedException: User not enabled for
+cost explorer access`). This is an account setting, not an IAM permission, and enabling
+it takes about 24 hours to take effect after being turned on in that account's Billing
+console. Cost Explorer on the org's payer/management account already covers every linked
+account, so route around the block instead of waiting on it:
+
+1. Find the profile's `ssoSession` entry. If it has a `payerProfile`, that names another
+   profile in the same config with Cost Explorer access to the whole organization.
+2. Query Cost Explorer against the `payerProfile`, grouped by `Type=DIMENSION,Key=LINKED_ACCOUNT`,
+   and filter to the member account's `accountId` to get that account's costs.
+3. If the session has no `payerProfile`, tell the user this account's costs aren't reachable
+   yet and that they can register the org's management account as a profile (`aws-skill
+   register`, answering yes to "Is this the org's payer/management account?") to unlock it.
 
 ## Production caution
 
