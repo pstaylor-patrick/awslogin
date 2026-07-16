@@ -17,6 +17,7 @@ This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked 
 | `personal` | 569032832755 (us-east-1) | SSO (personal-sso) |
 | `j2j` | 427827265964 (us-east-1) | SSO (personal-sso) |
 | `j2j-staging` | 985823270538 (us-east-1) | SSO (personal-sso) |
+| `j2j-production` | 202689043194 (us-east-1) | SSO (personal-sso) |
 | `leagueos` | 673586358710 (us-east-1) | SSO (personal-sso) |
 | `servant-internal` | 379604374638 (us-east-1) | SSO (servant-sso) |
 | `5ll-coaching` | 704629028390 (us-east-1) | SSO (servant-sso) |
