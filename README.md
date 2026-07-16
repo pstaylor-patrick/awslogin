@@ -23,6 +23,7 @@ This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked 
 | `5ll-coaching` | 704629028390 (us-east-1) | SSO (servant-sso) |
 | `customer360-example` | 200774432632 (us-east-1) | SSO (servant-sso) |
 | `servant-payer` | 739272173615 (us-east-1) | SSO (servant-sso) |
+| `amfm-staging` | 851276831366 (us-east-1) | SSO (servant-sso) |
 
 ## Usage
 
