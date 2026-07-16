@@ -21,10 +21,8 @@ This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked 
 | `leagueos` | 673586358710 (us-east-1) | SSO (personal-sso) |
 | `servant-internal` | 379604374638 (us-east-1) | SSO (servant-sso) |
 | `5ll-coaching` | 704629028390 (us-east-1) | SSO (servant-sso) |
-| `amfm-heartchart` | 306337361440 (us-east-1) | SSO (servant-sso) |
 | `customer360-example` | 200774432632 (us-east-1) | SSO (servant-sso) |
 | `servant-payer` | 739272173615 (us-east-1) | SSO (servant-sso) |
-| `amfm` | 760033296056 (us-east-1) | SSO (servant-sso) |
 
 ## Usage
 
