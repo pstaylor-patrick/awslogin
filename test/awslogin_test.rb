@@ -5,7 +5,7 @@ require "fileutils"
 require "tmpdir"
 
 REPO = File.expand_path("..", __dir__)
-load File.join(REPO, "bin", "aws-skill")
+load File.join(REPO, "bin", "awslogin")
 
 def capture(argv, home)
   output = IO.popen({ "HOME" => home }, argv, err: %i[child out], &:read)
@@ -38,21 +38,21 @@ CONFIG
 class ParseIniTest < Minitest::Test
   def test_reads_key_value_pairs_into_the_enclosing_section
     assert_equal({ "sso_start_url" => "https://example.awsapps.com/start", "sso_region" => "us-east-1" },
-                 AwsSkill.parse_ini(SAMPLE)["sso-session personal-sso"])
+                 AwsLogin.parse_ini(SAMPLE)["sso-session personal-sso"])
   end
 
   def test_keeps_everything_after_the_first_equals_in_the_value
-    sections = AwsSkill.parse_ini("[profile p]\nsso_start_url = https://x/start?a=b\n")
+    sections = AwsLogin.parse_ini("[profile p]\nsso_start_url = https://x/start?a=b\n")
     assert_equal "https://x/start?a=b", sections["profile p"]["sso_start_url"]
   end
 
   def test_ignores_comments_blank_lines_keyless_lines_and_text_before_any_section
     text = "stray = 1\n\n; semi\n[profile p]\nnoequals\nregion = us-east-1\n"
-    assert_equal({ "profile p" => { "region" => "us-east-1" } }, AwsSkill.parse_ini(text))
+    assert_equal({ "profile p" => { "region" => "us-east-1" } }, AwsLogin.parse_ini(text))
   end
 
   def test_merges_a_section_header_that_appears_twice
-    sections = AwsSkill.parse_ini("[profile p]\na = 1\n[profile p]\nb = 2\n")
+    sections = AwsLogin.parse_ini("[profile p]\na = 1\n[profile p]\nb = 2\n")
     assert_equal({ "a" => "1", "b" => "2" }, sections["profile p"])
   end
 end
@@ -60,37 +60,37 @@ end
 class LoginTargetsTest < Minitest::Test
   def test_groups_profiles_sharing_an_sso_session_into_one_login
     assert_equal({ label: "sso-session personal-sso", profiles: %w[personal j2j] },
-                 AwsSkill.login_targets(SAMPLE).first)
+                 AwsLogin.login_targets(SAMPLE).first)
   end
 
   def test_includes_sessions_with_no_sso_session_block_of_their_own
-    labels = AwsSkill.login_targets(SAMPLE).map { |target| target[:label] }
+    labels = AwsLogin.login_targets(SAMPLE).map { |target| target[:label] }
     assert_includes labels, "sso-session servant-sso"
   end
 
   def test_gives_legacy_inline_sso_profiles_their_own_target
-    assert_includes AwsSkill.login_targets(SAMPLE), { label: "profile legacy", profiles: ["legacy"] }
+    assert_includes AwsLogin.login_targets(SAMPLE), { label: "profile legacy", profiles: ["legacy"] }
   end
 
   def test_skips_profiles_with_no_sso_configuration
-    profiles = AwsSkill.login_targets(SAMPLE).flat_map { |target| target[:profiles] }
+    profiles = AwsLogin.login_targets(SAMPLE).flat_map { |target| target[:profiles] }
     refute_includes profiles, "static-creds"
   end
 
   def test_treats_the_default_section_as_a_profile
     assert_equal [{ label: "sso-session s", profiles: ["default"] }],
-                 AwsSkill.login_targets("[default]\nsso_session = s\n")
+                 AwsLogin.login_targets("[default]\nsso_session = s\n")
   end
 
   def test_returns_nothing_for_a_config_with_no_sso_profiles
-    assert_empty AwsSkill.login_targets("[profile p]\nregion = us-east-1\n")
+    assert_empty AwsLogin.login_targets("[profile p]\nregion = us-east-1\n")
   end
 end
 
 class DescribeTest < Minitest::Test
   def test_labels_a_target_with_the_profiles_it_covers
     assert_equal "sso-session personal-sso: personal, j2j",
-                 AwsSkill.describe({ label: "sso-session personal-sso", profiles: %w[personal j2j] })
+                 AwsLogin.describe({ label: "sso-session personal-sso", profiles: %w[personal j2j] })
   end
 end
 
@@ -128,14 +128,14 @@ class CliTest < Minitest::Test
     Dir.mktmpdir do |home|
       status, output = run_cli(home, "bogus")
       assert_equal 2, status
-      assert_includes output, "Usage: aws-skill"
+      assert_includes output, "Usage: awslogin"
     end
   end
 
   private
 
   def run_cli(home, *args)
-    capture(["ruby", File.join(REPO, "bin", "aws-skill"), *args], home)
+    capture(["ruby", File.join(REPO, "bin", "awslogin"), *args], home)
   end
 end
 
@@ -145,9 +145,9 @@ class InstallTest < Minitest::Test
       status, output = install(home)
       assert_equal 0, status
       assert_includes output, "Installed /aws ->"
-      assert_includes output, "Installed aws-skill CLI ->"
+      assert_includes output, "Installed awslogin CLI ->"
       assert_equal File.join(REPO, "SKILL.md"), File.readlink(skill_link(home))
-      assert_equal File.join(REPO, "bin", "aws-skill"), File.readlink(cli_link(home))
+      assert_equal File.join(REPO, "bin", "awslogin"), File.readlink(cli_link(home))
     end
   end
 
@@ -191,6 +191,6 @@ class InstallTest < Minitest::Test
   end
 
   def cli_link(home)
-    File.join(home, "bin", "aws-skill")
+    File.join(home, "bin", "awslogin")
   end
 end

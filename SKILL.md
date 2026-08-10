@@ -13,7 +13,7 @@ The user has invoked `/aws $ARGUMENTS`.
 ## Discover the login targets
 
 ```sh
-aws-skill list
+awslogin list
 ```
 
 Each line is one login target: `sso-session <name>: profile, profile, ...`, or
@@ -61,8 +61,8 @@ When the user is at a shell rather than in Claude Code, a human can approve the 
 prompt directly, so tell them to run:
 
 ```sh
-aws-skill login                     # browser flow, all targets in sequence
-aws-skill login --use-device-code   # device code flow, all targets in sequence
+awslogin login                     # browser flow, all targets in sequence
+awslogin login --use-device-code   # device code flow, all targets in sequence
 ```
 
 ## A profile name was given
