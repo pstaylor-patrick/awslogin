@@ -1,5 +1,5 @@
 ---
-description: Set AWS profile context and run CLI operations against the named account.
+description: Refresh AWS SSO logins for the profiles in ~/.aws/config and run CLI operations against a named account.
 argument-hint:
 - profile-name
 name: aws
@@ -8,100 +8,88 @@ name: aws
 
 The user has invoked `/aws $ARGUMENTS`.
 
-## Load configuration
+`~/.aws/config` is the only source of truth. There is no separate registry to read or write.
 
-First, run:
-
-```sh
-cat ~/.aws-skill/profiles.json
-```
-
-If the file is missing (cat exits non-zero or reports "No such file"), tell the user to run `aws-skill register` and stop. Do not proceed further.
-
-Parse the JSON to discover:
-- **profiles**: each entry's `accountId`, `region`, `roleName`, `auth`, `ssoSession`, and `production` flag
-- **ssoSessions**: each session's `startUrl`, `region`, optional `passwordStore`, and optional `payerProfile`
-- **sibling groups**: which profiles share the same `ssoSession` value (a single SSO login covers all siblings in a group)
-- **preferences** (optional top-level key): personal overrides such as `onepasswordTool` (the binary used to read 1Password secrets; defaults to `op`)
-
-## How SSO logins work
-
-- **Run `aws sso login --profile <profile>` in the FOREGROUND as a blocking command. Never background it.** The SSO authorization window is short: if backgrounded or not approved promptly, it fails with `The pending authorization to retrieve an SSO token has expired` (exit 255). Use a generous timeout (180000ms) and **tell the user to approve it promptly** in the browser.
-- **Fallback:** if the browser / localhost-callback flow is disrupted or keeps expiring, retry with `aws sso login --profile <profile> --use-device-code`. This gives the user a code to enter without depending on a localhost callback.
-- **One login covers siblings.** All profiles sharing the same `ssoSession` value are authenticated by a single `aws sso login`. Compute sibling groups from the config before running any logins.
-- **SSO tokens expire (~daily).** Never assume a token is still fresh. Always verify with `aws sts get-caller-identity`, or force-refresh.
-
-## Copying the account password before SSO login
-
-The password belongs to the SSO session, not the individual profile: one login covers every sibling profile in the group, so each `ssoSession` carries at most one `passwordStore`.
-
-For any `ssoSession` whose `passwordStore` has `provider === "1password"`:
-
-**Immediately before** running `aws sso login`, copy the password to the clipboard. Determine the tool to use:
-
-1. Check `preferences.onepasswordTool` in `profiles.json`. If set, use that binary.
-2. Otherwise default to `op` (the standard 1Password CLI).
-
-Then run:
+## Discover the login targets
 
 ```sh
-OP_ACCOUNT="<account>" <tool> read "op://<vaultId>/<itemId>/<field>" | tr -d '\n' | pbcopy
+aws-skill list
 ```
 
-Do not `echo` the value or let it land in the terminal transcript. If the command fails, note the failure and continue with the login anyway.
+Each line is one login target: `sso-session <name>: profile, profile, ...`, or
+`profile <name>: <name>` for a profile carrying inline `sso_start_url` with no session.
+One `aws sso login` refreshes every profile on that line.
 
-Tell the user the password is on their clipboard.
+If `aws-skill` is not on PATH, read `~/.aws/config` directly and group `[profile ...]`
+blocks by their `sso_session` value yourself. If it lists no targets, tell the user to add
+profiles with `aws configure sso` and stop.
 
-## Cross-account billing audits
+## Refreshing logins from inside Claude Code
 
-Member accounts in an AWS Organization often have Cost Explorer disabled at the account
-level (`aws ce get-cost-and-usage` returns `AccessDeniedException: User not enabled for
-cost explorer access`). This is an account setting, not an IAM permission, and enabling
-it takes about 24 hours to take effect after being turned on in that account's Billing
-console. Cost Explorer on the org's payer/management account already covers every linked
-account, so route around the block instead of waiting on it:
+Never run `aws sso login` in the foreground here. The browser flow blocks on a click you
+cannot see, and the pending authorization expires (exit 255,
+`The pending authorization to retrieve an SSO token has expired`). Use the device code flow
+in the background instead, so the user gets the URL and the code while the command waits:
 
-1. Find the profile's `ssoSession` entry. If it has a `payerProfile`, that names another
-   profile in the same config with Cost Explorer access to the whole organization.
-2. Query Cost Explorer against the `payerProfile`, grouped by `Type=DIMENSION,Key=LINKED_ACCOUNT`,
-   and filter to the member account's `accountId` to get that account's costs.
-3. If the session has no `payerProfile`, tell the user this account's costs aren't reachable
-   yet and that they can register the org's management account as a profile (`aws-skill
-   register`, answering yes to "Is this the org's payer/management account?") to unlock it.
+For each login target:
+
+1. Start `aws sso login --profile <profile> --use-device-code` as a background Bash command
+   with a 600000ms timeout. Start every target before reporting anything, so all of them
+   are waiting at once.
+2. Poll each command's output until the verification URL and the code appear (usually within
+   a few seconds). The output looks like:
+
+   ```
+   open the following URL:
+
+   https://device.sso.us-east-1.amazonaws.com/
+
+   Then enter the code:
+
+   ABCD-EFGH
+   ```
+3. Report every target in one message before waiting on any of them, as a list of
+   `<sso-session or profile> covering <profiles>` with its URL and its code, so the user can
+   work through them without switching back and forth. Codes expire in a few minutes, so do
+   not withhold one while waiting on another.
+4. Poll the background commands until each exits. Report each one as it finishes.
+5. Verify with `aws sts get-caller-identity --profile <name>` for every profile the targets
+   cover, and end with a one-line summary per profile: name, account, role, fresh or failed.
+
+## Refreshing logins from a terminal
+
+When the user is at a shell rather than in Claude Code, a human can approve the browser
+prompt directly, so tell them to run:
+
+```sh
+aws-skill login                     # browser flow, all targets in sequence
+aws-skill login --use-device-code   # device code flow, all targets in sequence
+```
+
+## A profile name was given
+
+Do the same thing for that profile's target only: background device code login, surface the
+URL and code, wait, then `aws sts get-caller-identity --profile <name>`. Refresh
+unconditionally rather than guessing whether the token is still valid; SSO tokens expire
+roughly daily.
+
+Then confirm which account and role is active and proceed with the user's task. Pass
+`--profile <name>` explicitly to every `aws` command. Never rely on the default profile or
+on `AWS_PROFILE`.
 
 ## Production caution
 
-If a profile has `"production": true`, treat every write or destructive AWS operation with extra care. Before any action that modifies or deletes resources, confirm explicitly with the user and remind them this is a production account.
+Treat any profile whose name contains `prod` as production, plus any account the user has
+called production. Before any write or destructive operation on one, say what will change
+and get explicit confirmation.
 
-## No argument: refresh every profile
+## Cost Explorer on org member accounts
 
-If no argument (or an unrecognized one) is given, do **not** just list profiles and ask. Instead, **eagerly refresh every profile**, narrating each step:
-
-1. Group SSO profiles by `ssoSession`. For each unique session group:
-   a. Announce which profiles this session covers.
-   b. If the session has a `passwordStore`, copy the password to the clipboard (see above) before the login.
-   c. Run `aws sso login --profile <any-profile-in-the-group>` (foreground; ask the user to approve promptly; note the password is on their clipboard if applicable). This refreshes all profiles sharing that session.
-   d. Verify each profile in the group: `aws sts get-caller-identity --profile <name>`; report account and role.
-
-2. For each `iam-static` profile:
-   a. Run `aws sts get-caller-identity --profile <name>` to verify.
-   b. If it fails, tell the user the credentials need restoring. Do **not** attempt `aws sso login` for it.
-
-3. End with a one-line summary for every profile (name, account, role, fresh/failed).
-
-## Named profile: always force-refresh, then proceed
-
-If a specific profile **is** named:
-
-1. **SSO profiles** (`auth === "sso"`):
-   a. If the profile's `ssoSession` has a `passwordStore`, copy the password to the clipboard (see above).
-   b. Run `aws sso login --profile <name>` **unconditionally** (foreground, never backgrounded; ask the user to approve promptly; note the password is on their clipboard if applicable; use `--use-device-code` if the browser flow is disrupted). Do not skip the login even if the token appears fresh.
-   c. Run `aws sts get-caller-identity --profile <name>` to confirm.
-
-2. **Static IAM profiles** (`auth === "iam-static"`): Run `aws sts get-caller-identity --profile <name>`. If it fails, tell the user to restore the credentials and stop. Do **not** attempt `aws sso login`.
-
-3. Confirm which account and role is active.
-
-4. Ask what the user would like to do (or proceed if they already stated a task). Always pass `--profile <name>` to every `aws` CLI command.
-
-Always use the explicit `--profile` flag on every `aws` command. Never rely on the default profile or environment variables.
+`aws ce get-cost-and-usage` on a member account of an AWS Organization often fails with
+`AccessDeniedException: User not enabled for cost explorer access`. That is an account
+setting, not an IAM permission, and enabling it takes about 24 hours. The org's payer
+account already has Cost Explorer data for every linked account, so query it there instead:
+run the call against the payer profile with
+`--group-by Type=DIMENSION,Key=LINKED_ACCOUNT` and filter to the member account's
+`sso_account_id` (read it from `~/.aws/config`). Ask the user which profile is the payer
+account if it is not obvious.

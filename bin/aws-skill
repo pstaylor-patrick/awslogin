@@ -1,26 +1,48 @@
 #!/usr/bin/env node
-// Thin ESM dispatcher. All logic is in src/.
-import { homedir } from "node:os";
-import { registerInteractive } from "../src/register.js";
-import { loadConfig, listProfiles } from "../src/config.js";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { awsConfigPath, describeTarget, loginTargets } from "../src/aws-config.js";
 
-const [,, cmd] = process.argv;
+const args = process.argv.slice(2);
+const cmd = args.find((a) => !a.startsWith("-")) ?? "login";
+const deviceCode = args.includes("--use-device-code");
+
+if (cmd !== "login" && cmd !== "list") {
+  process.stderr.write("Usage: aws-skill [list|login] [--use-device-code]\n");
+  process.exit(2);
+}
+
+const path = awsConfigPath();
+let text;
 try {
-  if (cmd === "register") {
-    const result = await registerInteractive({ home: homedir() });
-    console.log(`Registered profile: ${result.profile}`);
-    for (const p of result.wrote) console.log(`  wrote: ${p}`);
-  } else if (cmd === "list") {
-    const config = loadConfig(homedir());
-    for (const name of listProfiles(config)) {
-      const p = config.profiles[name];
-      console.log(`${name}  ${p.accountId}  ${p.region}  ${p.auth}${p.production ? "  [prod]" : ""}`);
-    }
-  } else {
-    process.stderr.write("Usage: aws-skill <register|list>\n");
-    process.exit(2);
-  }
-} catch (err) {
-  process.stderr.write(err.message + "\n");
+  text = readFileSync(path, "utf8");
+} catch {
+  process.stderr.write(`Cannot read ${path}\n`);
   process.exit(1);
 }
+
+const targets = loginTargets(text);
+if (targets.length === 0) {
+  process.stderr.write(`No SSO profiles found in ${path}\n`);
+  process.exit(1);
+}
+
+if (cmd === "list") {
+  for (const target of targets) console.log(describeTarget(target));
+  process.exit(0);
+}
+
+let failed = 0;
+for (const target of targets) {
+  console.log(`\n==> ${describeTarget(target)}`);
+  const { status } = spawnSync(
+    "aws",
+    ["sso", "login", "--profile", target.profile, ...(deviceCode ? ["--use-device-code"] : [])],
+    { stdio: "inherit" }
+  );
+  if (status !== 0) {
+    failed += 1;
+    console.error(`login failed: ${describeTarget(target)}`);
+  }
+}
+process.exit(failed ? 1 : 0);

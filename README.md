@@ -1,6 +1,7 @@
 # aws skill
 
-Claude Code skill for working with AWS profiles. Sets the active profile context and provides guidance for SSO refresh, CLI operations, and multi-account workflows.
+Claude Code skill plus a small CLI for refreshing AWS SSO logins across every profile in
+`~/.aws/config`.
 
 ## Installation
 
@@ -8,36 +9,29 @@ Claude Code skill for working with AWS profiles. Sets the active profile context
 ruby install.rb
 ```
 
-This installs `/aws` system-wide as a Claude Code userSettings skill (symlinked into `~/.claude/skills/aws/`).
+Symlinks `/aws` into `~/.claude/skills/aws/` and `aws-skill` into `~/bin/`.
 
 ## Profiles
 
-| Profile | Account | Auth |
-|---|---|---|
-| `personal` | 569032832755 (us-east-1) | SSO (personal-sso) |
-| `j2j` | 427827265964 (us-east-1) | SSO (personal-sso) |
-| `j2j-staging` | 985823270538 (us-east-1) | SSO (personal-sso) |
-| `j2j-production` | 202689043194 (us-east-1) | SSO (personal-sso) |
-| `leagueos` | 673586358710 (us-east-1) | SSO (personal-sso) |
-| `servant-internal` | 379604374638 (us-east-1) | SSO (servant-sso) |
-| `5ll-coaching` | 704629028390 (us-east-1) | SSO (servant-sso) |
-| `customer360-example` | 200774432632 (us-east-1) | SSO (servant-sso) |
-| `servant-payer` | 739272173615 (us-east-1) | SSO (servant-sso) |
-| `amfm-staging` | 851276831366 (us-east-1) | SSO (servant-sso) |
+`~/.aws/config` is the only source of truth. Add profiles with `aws configure sso` or by
+editing that file. Profiles that share an `sso_session` share a single login.
 
 ## Usage
+
+```bash
+aws-skill list                      # show login targets: one sso-session and the profiles it covers
+aws-skill login                     # refresh every target, browser flow
+aws-skill login --use-device-code   # refresh every target, device code flow
+```
 
 ```
 /aws [profile]
 ```
 
-No argument: refresh every saved profile in sequence. Named argument: force-refresh that profile's SSO token then proceed.
-
-## Password copy before SSO login
-
-An `ssoSession` may carry an optional `passwordStore`. When present, the skill copies that account's IdP password to the clipboard just before `aws sso login` opens the browser, so it is ready to paste. The store lives on the session, not the profile, because one login covers every sibling profile sharing the session.
-
-For `provider: "1password"`, the copy uses `op-cli` (the [`/op` skill's wrapper](../1password), installed on PATH) and resolves `op://<vaultId>/<itemId>/<field>` with `OP_ACCOUNT` set to `account`. The item references are personal, so they live only in your untracked `~/.aws-skill/profiles.json`, never in this repo. See `profiles.example.json` for the shape.
+In Claude Code the skill runs the device code flow in the background and surfaces the
+verification URL, the code, and which profiles each login covers, because the browser flow
+needs a click nothing in the session can perform. With no argument it refreshes every
+target, then verifies each profile with `aws sts get-caller-identity`.
 
 ## Development
 
