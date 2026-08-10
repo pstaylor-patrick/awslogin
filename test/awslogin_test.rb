@@ -144,7 +144,7 @@ class InstallTest < Minitest::Test
     Dir.mktmpdir do |home|
       status, output = install(home)
       assert_equal 0, status
-      assert_includes output, "Installed /aws ->"
+      assert_includes output, "Installed /awslogin ->"
       assert_includes output, "Installed awslogin CLI ->"
       assert_equal File.join(REPO, "SKILL.md"), File.readlink(skill_link(home))
       assert_equal File.join(REPO, "bin", "awslogin"), File.readlink(cli_link(home))
@@ -166,7 +166,7 @@ class InstallTest < Minitest::Test
       install(home)
       status, output = install(home, "--uninstall")
       assert_equal 0, status
-      assert_includes output, "Uninstalled /aws"
+      assert_includes output, "Uninstalled /awslogin"
       refute File.symlink?(skill_link(home))
       refute File.symlink?(cli_link(home))
     end
@@ -187,7 +187,7 @@ class InstallTest < Minitest::Test
   end
 
   def skill_link(home)
-    File.join(home, ".claude", "skills", "aws", "SKILL.md")
+    File.join(home, ".claude", "skills", "awslogin", "SKILL.md")
   end
 
   def cli_link(home)

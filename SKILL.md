@@ -2,11 +2,11 @@
 description: Refresh AWS SSO logins for the profiles in ~/.aws/config and run CLI operations against a named account.
 argument-hint:
 - profile-name
-name: aws
+name: awslogin
 ---
-# /aws
+# /awslogin
 
-The user has invoked `/aws $ARGUMENTS`.
+The user has invoked `/awslogin $ARGUMENTS`.
 
 `~/.aws/config` is the only source of truth.
 
