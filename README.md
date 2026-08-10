@@ -27,10 +27,10 @@ Claude cannot perform.
 ## Why this exists
 
 The AWS CLI already does the actual work here; this repo does not replace it. From a
-terminal, `awslogin` just saves you from reading `~/.aws/config` by hand to figure out
+terminal, `awslogin` saves you from reading `~/.aws/config` by hand to figure out
 which profiles share an `sso_session` and can skip a redundant login. The real reason to
 run this from Claude Code is that `aws sso login`'s default browser flow blocks on a click
-an agent session cannot make and the pending authorization just expires. The `/aws` skill
+an agent session cannot make and the pending authorization expires. The `/aws` skill
 is what makes SSO refresh actually work from inside Claude Code at all.
 
 ## Development
