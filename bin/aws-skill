@@ -1,48 +1,95 @@
-#!/usr/bin/env node
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { awsConfigPath, describeTarget, loginTargets } from "../src/aws-config.js";
+#!/usr/bin/env ruby
+# frozen_string_literal: true
 
-const args = process.argv.slice(2);
-const cmd = args.find((a) => !a.startsWith("-")) ?? "login";
-const deviceCode = args.includes("--use-device-code");
+module AwsSkill
+  CONFIG_PATH = File.join(Dir.home, ".aws", "config")
 
-if (cmd !== "login" && cmd !== "list") {
-  process.stderr.write("Usage: aws-skill [list|login] [--use-device-code]\n");
-  process.exit(2);
-}
+  def self.parse_ini(text)
+    sections = {}
+    current = nil
+    text.each_line do |raw|
+      line = raw.strip
+      next if line.empty? || line.start_with?("#", ";")
 
-const path = awsConfigPath();
-let text;
-try {
-  text = readFileSync(path, "utf8");
-} catch {
-  process.stderr.write(`Cannot read ${path}\n`);
-  process.exit(1);
-}
+      if (header = line[/\A\[(.+)\]\z/, 1])
+        current = (sections[header.strip] ||= {})
+      elsif current && (eq = line.index("="))
+        current[line[0, eq].strip] = line[(eq + 1)..].strip
+      end
+    end
+    sections
+  end
 
-const targets = loginTargets(text);
-if (targets.length === 0) {
-  process.stderr.write(`No SSO profiles found in ${path}\n`);
-  process.exit(1);
-}
+  def self.profile_name(section)
+    return "default" if section == "default"
 
-if (cmd === "list") {
-  for (const target of targets) console.log(describeTarget(target));
-  process.exit(0);
-}
+    section.sub(/\Aprofile\s+/, "").strip if section.start_with?("profile ")
+  end
 
-let failed = 0;
-for (const target of targets) {
-  console.log(`\n==> ${describeTarget(target)}`);
-  const { status } = spawnSync(
-    "aws",
-    ["sso", "login", "--profile", target.profile, ...(deviceCode ? ["--use-device-code"] : [])],
-    { stdio: "inherit" }
-  );
-  if (status !== 0) {
-    failed += 1;
-    console.error(`login failed: ${describeTarget(target)}`);
-  }
-}
-process.exit(failed ? 1 : 0);
+  # One `aws sso login` refreshes every profile sharing an sso_session, so the unit of
+  # work is the session, not the profile. Legacy profiles carrying an inline sso_start_url
+  # have no session to share and each need a login of their own.
+  def self.login_targets(text)
+    targets = []
+    by_session = {}
+    parse_ini(text).each do |section, values|
+      profile = profile_name(section)
+      next unless profile
+
+      if (session = values["sso_session"])
+        if (target = by_session[session])
+          target[:profiles] << profile
+        else
+          target = { label: "sso-session #{session}", profiles: [profile] }
+          by_session[session] = target
+          targets << target
+        end
+      elsif values["sso_start_url"]
+        targets << { label: "profile #{profile}", profiles: [profile] }
+      end
+    end
+    targets
+  end
+
+  def self.describe(target)
+    "#{target[:label]}: #{target[:profiles].join(", ")}"
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  command = ARGV.find { |arg| !arg.start_with?("-") } || "login"
+  device_code = ARGV.include?("--use-device-code")
+
+  unless %w[list login].include?(command)
+    warn "Usage: aws-skill [list|login] [--use-device-code]"
+    exit 2
+  end
+
+  unless File.readable?(AwsSkill::CONFIG_PATH)
+    warn "Cannot read #{AwsSkill::CONFIG_PATH}"
+    exit 1
+  end
+
+  targets = AwsSkill.login_targets(File.read(AwsSkill::CONFIG_PATH))
+  if targets.empty?
+    warn "No SSO profiles found in #{AwsSkill::CONFIG_PATH}"
+    exit 1
+  end
+
+  if command == "list"
+    targets.each { |target| puts AwsSkill.describe(target) }
+    exit 0
+  end
+
+  failed = 0
+  targets.each do |target|
+    puts "\n==> #{AwsSkill.describe(target)}"
+    argv = ["aws", "sso", "login", "--profile", target[:profiles].first]
+    argv << "--use-device-code" if device_code
+    next if system(*argv)
+
+    failed += 1
+    warn "login failed: #{AwsSkill.describe(target)}"
+  end
+  exit(failed.zero? ? 0 : 1)
+end

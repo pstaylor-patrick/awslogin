@@ -8,7 +8,7 @@ name: aws
 
 The user has invoked `/aws $ARGUMENTS`.
 
-`~/.aws/config` is the only source of truth. There is no separate registry to read or write.
+`~/.aws/config` is the only source of truth.
 
 ## Discover the login targets
 
@@ -20,9 +20,8 @@ Each line is one login target: `sso-session <name>: profile, profile, ...`, or
 `profile <name>: <name>` for a profile carrying inline `sso_start_url` with no session.
 One `aws sso login` refreshes every profile on that line.
 
-If `aws-skill` is not on PATH, read `~/.aws/config` directly and group `[profile ...]`
-blocks by their `sso_session` value yourself. If it lists no targets, tell the user to add
-profiles with `aws configure sso` and stop.
+Trust its output rather than reading `~/.aws/config` yourself. If it lists no targets, tell
+the user to add profiles with `aws configure sso` and stop.
 
 ## Refreshing logins from inside Claude Code
 

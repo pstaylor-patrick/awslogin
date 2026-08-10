@@ -1,6 +1,6 @@
 # aws skill
 
-Claude Code skill plus a small CLI for refreshing AWS SSO logins across every profile in
+Claude Code skill plus a small Ruby CLI for refreshing AWS SSO logins across every profile in
 `~/.aws/config`.
 
 ## Installation
@@ -9,7 +9,8 @@ Claude Code skill plus a small CLI for refreshing AWS SSO logins across every pr
 ruby install.rb
 ```
 
-Symlinks `/aws` into `~/.claude/skills/aws/` and `aws-skill` into `~/bin/`.
+Symlinks `/aws` into `~/.claude/skills/aws/` and `aws-skill` into `~/bin/`. Ruby stdlib only,
+so there is nothing to install first.
 
 ## Profiles
 
@@ -36,9 +37,7 @@ target, then verifies each profile with `aws sts get-caller-identity`.
 ## Development
 
 ```bash
-npm install
-npm test          # run once
-npm run coverage  # enforces coverage thresholds (see vitest.config.js)
+ruby test/aws_skill_test.rb
 ```
 
-CI runs `npm run coverage` on every push to `main` and on pull requests targeting `main`.
+CI runs the same command on every push to `main` and on pull requests targeting `main`.
