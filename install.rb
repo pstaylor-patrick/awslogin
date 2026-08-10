@@ -11,8 +11,8 @@ SKILL_DIR  = File.join(Dir.home, ".claude", "skills", "aws")
 SKILL_LINK = File.join(SKILL_DIR, "SKILL.md")
 SKILL_SRC  = File.join(REPO_DIR, "SKILL.md")
 BIN_DIR    = File.join(Dir.home, "bin")
-CLI_LINK   = File.join(BIN_DIR, "aws-skill")
-CLI_SRC    = File.join(REPO_DIR, "bin", "aws-skill")
+CLI_LINK   = File.join(BIN_DIR, "awslogin")
+CLI_SRC    = File.join(REPO_DIR, "bin", "awslogin")
 
 def force_symlink(src, link)
   File.delete(link) if File.symlink?(link) || File.exist?(link)
@@ -28,7 +28,7 @@ if ARGV[0] == "--uninstall"
   end
   if File.symlink?(CLI_LINK)
     File.delete(CLI_LINK)
-    puts "Uninstalled aws-skill CLI (removed #{CLI_LINK})"
+    puts "Uninstalled awslogin CLI (removed #{CLI_LINK})"
   end
   exit 0
 end
@@ -39,8 +39,8 @@ puts "Installed /aws -> #{SKILL_SRC}"
 
 FileUtils.mkdir_p(BIN_DIR)
 force_symlink(CLI_SRC, CLI_LINK)
-puts "Installed aws-skill CLI -> #{CLI_SRC}"
+puts "Installed awslogin CLI -> #{CLI_SRC}"
 
 unless ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).include?(BIN_DIR)
-  puts "Warning: #{BIN_DIR} is not on your PATH. Add it so 'aws-skill' resolves."
+  puts "Warning: #{BIN_DIR} is not on your PATH. Add it so 'awslogin' resolves."
 end

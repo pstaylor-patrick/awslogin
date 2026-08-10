@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-module AwsSkill
+module AwsLogin
   CONFIG_PATH = File.join(Dir.home, ".aws", "config")
 
   def self.parse_ini(text)
@@ -61,35 +61,35 @@ if $PROGRAM_NAME == __FILE__
   device_code = ARGV.include?("--use-device-code")
 
   unless %w[list login].include?(command)
-    warn "Usage: aws-skill [list|login] [--use-device-code]"
+    warn "Usage: awslogin [list|login] [--use-device-code]"
     exit 2
   end
 
-  unless File.readable?(AwsSkill::CONFIG_PATH)
-    warn "Cannot read #{AwsSkill::CONFIG_PATH}"
+  unless File.readable?(AwsLogin::CONFIG_PATH)
+    warn "Cannot read #{AwsLogin::CONFIG_PATH}"
     exit 1
   end
 
-  targets = AwsSkill.login_targets(File.read(AwsSkill::CONFIG_PATH))
+  targets = AwsLogin.login_targets(File.read(AwsLogin::CONFIG_PATH))
   if targets.empty?
-    warn "No SSO profiles found in #{AwsSkill::CONFIG_PATH}"
+    warn "No SSO profiles found in #{AwsLogin::CONFIG_PATH}"
     exit 1
   end
 
   if command == "list"
-    targets.each { |target| puts AwsSkill.describe(target) }
+    targets.each { |target| puts AwsLogin.describe(target) }
     exit 0
   end
 
   failed = 0
   targets.each do |target|
-    puts "\n==> #{AwsSkill.describe(target)}"
+    puts "\n==> #{AwsLogin.describe(target)}"
     argv = ["aws", "sso", "login", "--profile", target[:profiles].first]
     argv << "--use-device-code" if device_code
     next if system(*argv)
 
     failed += 1
-    warn "login failed: #{AwsSkill.describe(target)}"
+    warn "login failed: #{AwsLogin.describe(target)}"
   end
   exit(failed.zero? ? 0 : 1)
 end
