@@ -1,13 +1,13 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Install or uninstall the /aws Claude Code skill system-wide.
+# Install or uninstall the /awslogin Claude Code skill system-wide.
 # Usage: ruby install.rb [--uninstall]  (or ./install.rb)
 
 require "fileutils"
 
 REPO_DIR   = __dir__
-SKILL_DIR  = File.join(Dir.home, ".claude", "skills", "aws")
+SKILL_DIR  = File.join(Dir.home, ".claude", "skills", "awslogin")
 SKILL_LINK = File.join(SKILL_DIR, "SKILL.md")
 SKILL_SRC  = File.join(REPO_DIR, "SKILL.md")
 BIN_DIR    = File.join(Dir.home, "bin")
@@ -22,7 +22,7 @@ end
 if ARGV[0] == "--uninstall"
   if File.symlink?(SKILL_LINK)
     File.delete(SKILL_LINK)
-    puts "Uninstalled /aws (removed #{SKILL_LINK})"
+    puts "Uninstalled /awslogin (removed #{SKILL_LINK})"
   else
     puts "Nothing to uninstall (#{SKILL_LINK} is not a symlink)"
   end
@@ -35,7 +35,7 @@ end
 
 FileUtils.mkdir_p(SKILL_DIR)
 force_symlink(SKILL_SRC, SKILL_LINK)
-puts "Installed /aws -> #{SKILL_SRC}"
+puts "Installed /awslogin -> #{SKILL_SRC}"
 
 FileUtils.mkdir_p(BIN_DIR)
 force_symlink(CLI_SRC, CLI_LINK)
