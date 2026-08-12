@@ -1,7 +1,7 @@
 ---
 description: Refresh AWS SSO logins for the profiles in ~/.aws/config and run CLI operations against a named account.
 argument-hint:
-- profile-name
+- name ...
 name: awslogin
 ---
 # /awslogin
@@ -22,6 +22,9 @@ One `aws sso login` refreshes every profile on that line.
 
 Trust its output rather than reading `~/.aws/config` yourself. If it lists no targets, tell
 the user to add profiles with `aws configure sso` and stop.
+
+`awslogin list <name> ...` narrows the same output to the targets those names resolve to.
+Use it as a dry run when you are unsure what a name will match, before running any login.
 
 ## Refreshing logins from inside Claude Code
 
@@ -68,14 +71,41 @@ prompt directly, so tell them to run:
 ```sh
 awslogin login                     # browser flow, all targets in sequence
 awslogin login --use-device-code   # device code flow, all targets in sequence
+awslogin login amfm                # just the targets the name resolves to
+awslogin servant amfm              # `login` is the default command
 ```
 
-## A profile name was given
+## Names were given
 
-Do the same thing for that profile's target only: background device code login, surface the
-autofill URL, wait, then `aws sts get-caller-identity --profile <name>`. Refresh
-unconditionally rather than guessing whether the token is still valid; SSO tokens expire
-roughly daily.
+`awslogin list <name> ...` and `awslogin login <name> ...` take one or more names. The
+command word is optional: `awslogin amfm` is `awslogin login amfm`.
+
+A name selects whole login targets, never a bare profile, because one `aws sso login`
+refreshes every profile on the target. Matching is case-insensitive and works like this:
+
+1. An exact sso-session name (`amfm-sso`) or profile name (`amfm-production`) selects that
+   profile's target outright. Exact always wins, so `j2j` means the profile `j2j` even
+   though it is also a substring of `j2j-dns`.
+2. Otherwise the name is matched as a substring against every session and profile name. It
+   must land on exactly one login target. `amfm`, `servant`, `joinfold`, and `advantage`
+   each do, and each selects that whole session group.
+
+Several names union, deduped, in config order: `awslogin login servant amfm` refreshes both.
+
+Every name is validated before any login runs, so a bad name fails the whole command and
+logs into nothing. Two ways a name is rejected, both exit 2:
+
+- No match at all: `No login target matches "nope". Run awslogin list to see them all.`
+- Too vague: a name like `prod` can match production profiles across several unrelated
+  accounts, so it names no single login and is refused rather than guessed at. The error
+  lists every target it matched so the fix is obvious.
+
+Do not retry a rejected name with a guess. Show the user the listed targets and ask which
+one they meant, or type more of the name.
+
+For each selected target: background device code login, surface the autofill URL, wait, then
+`aws sts get-caller-identity --profile <name>`. Refresh unconditionally rather than guessing
+whether the token is still valid; SSO tokens expire roughly daily.
 
 Then confirm which account and role is active and proceed with the user's task. Pass
 `--profile <name>` explicitly to every `aws` command. Never rely on the default profile or
@@ -86,6 +116,9 @@ on `AWS_PROFILE`.
 Treat any profile whose name contains `prod` as production, plus any account the user has
 called production. Before any write or destructive operation on one, say what will change
 and get explicit confirmation.
+
+This is also why `awslogin prod` is refused: `prod` spans several unrelated production
+accounts, and picking one for the user would be exactly the wrong guess to make.
 
 ## Cost Explorer on org member accounts
 
