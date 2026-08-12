@@ -4,6 +4,9 @@
 module AwsLogin
   CONFIG_PATH = File.join(Dir.home, ".aws", "config")
 
+  # Raised when a name on the command line does not resolve to exactly one login target.
+  Error = Class.new(StandardError)
+
   def self.parse_ini(text)
     sections = {}
     current = nil
@@ -40,12 +43,12 @@ module AwsLogin
         if (target = by_session[session])
           target[:profiles] << profile
         else
-          target = { label: "sso-session #{session}", profiles: [profile] }
+          target = { name: session, label: "sso-session #{session}", profiles: [profile] }
           by_session[session] = target
           targets << target
         end
       elsif values["sso_start_url"]
-        targets << { label: "profile #{profile}", profiles: [profile] }
+        targets << { name: profile, label: "profile #{profile}", profiles: [profile] }
       end
     end
     targets
@@ -54,14 +57,52 @@ module AwsLogin
   def self.describe(target)
     "#{target[:label]}: #{target[:profiles].join(", ")}"
   end
+
+  # Everything a name on the command line may match: the target's own sso-session (or
+  # legacy profile) name, plus every profile it covers.
+  def self.terms(target)
+    [target[:name], *target[:profiles]].map(&:downcase)
+  end
+
+  # Naming one profile names its whole target, because a single `aws sso login` refreshes
+  # them all. An exact name wins outright, so `j2j` is the profile `j2j` even though it is
+  # also a substring of `j2j-dns`. Otherwise the name is treated as a substring and has to
+  # land on a single target: `prod` spans unrelated accounts, and guessing which one was
+  # meant is worse than asking for more letters.
+  def self.resolve(targets, name)
+    query = name.downcase
+    exact = targets.select { |target| terms(target).include?(query) }
+    return exact unless exact.empty?
+
+    matched = targets.select { |target| terms(target).any? { |term| term.include?(query) } }
+    raise Error, "No login target matches #{name.inspect}. Run `awslogin list` to see them all." if matched.empty?
+    raise Error, ambiguous_message(name, matched) if matched.size > 1
+
+    matched
+  end
+
+  def self.ambiguous_message(name, matched)
+    ["#{name.inspect} matches #{matched.size} login targets:",
+     *matched.map { |target| "  #{describe(target)}" },
+     "Use more of the name, or an exact profile or sso-session name."].join("\n")
+  end
+
+  # Every name is resolved and validated on its own before any of them are combined, so one
+  # bad name fails the whole run instead of logging into half of it. Filtering the original
+  # list gives config order and dedup in one step.
+  def self.select_targets(targets, names)
+    matched = names.flat_map { |name| resolve(targets, name) }
+    targets.select { |target| matched.include?(target) }
+  end
 end
 
 if $PROGRAM_NAME == __FILE__
-  command = ARGV.find { |arg| !arg.start_with?("-") } || "login"
-  device_code = ARGV.include?("--use-device-code")
+  flags, words = ARGV.partition { |arg| arg.start_with?("-") }
+  command = %w[list login].include?(words.first) ? words.shift : "login"
+  device_code = flags.delete("--use-device-code")
 
-  unless %w[list login].include?(command)
-    warn "Usage: awslogin [list|login] [--use-device-code]"
+  unless flags.empty?
+    warn "Usage: awslogin [list|login] [name ...] [--use-device-code]"
     exit 2
   end
 
@@ -74,6 +115,15 @@ if $PROGRAM_NAME == __FILE__
   if targets.empty?
     warn "No SSO profiles found in #{AwsLogin::CONFIG_PATH}"
     exit 1
+  end
+
+  unless words.empty?
+    begin
+      targets = AwsLogin.select_targets(targets, words)
+    rescue AwsLogin::Error => e
+      warn e.message
+      exit 2
+    end
   end
 
   if command == "list"
