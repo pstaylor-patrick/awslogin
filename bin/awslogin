@@ -85,9 +85,8 @@ if $PROGRAM_NAME == __FILE__
   targets.each do |target|
     puts "\n==> #{AwsLogin.describe(target)}"
     argv = ["aws", "sso", "login", "--profile", target[:profiles].first]
-    # --no-browser switches the CLI to PrintOnlyHandler, which prints a
-    # verificationUriComplete URL that autofills the device code. Without it,
-    # OpenBrowserHandler tries to launch a browser and never prints that URL.
+    # --no-browser makes the CLI print a URL that autofills the device code.
+    # Without it, the CLI tries to launch a browser and never prints that URL.
     argv.push("--use-device-code", "--no-browser") if device_code
     next if system(*argv)
 
