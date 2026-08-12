@@ -12,6 +12,10 @@ def capture(argv, home, extra_env = {})
   [$?.exitstatus, output]
 end
 
+def labels(targets)
+  targets.map { |target| target[:label] }
+end
+
 SAMPLE = <<~CONFIG
   [sso-session personal-sso]
   sso_start_url = https://example.awsapps.com/start
@@ -176,12 +180,6 @@ class ResolveTest < Minitest::Test
   def test_an_exact_name_wins_over_targets_it_is_only_a_substring_of
     assert_equal ["sso-session personal-sso"], labels(AwsLogin.resolve(@targets, "j2j"))
   end
-
-  private
-
-  def labels(targets)
-    targets.map { |target| target[:label] }
-  end
 end
 
 class SelectTargetsTest < Minitest::Test
@@ -211,12 +209,6 @@ class SelectTargetsTest < Minitest::Test
   def test_one_unmatched_name_fails_the_whole_selection
     error = assert_raises(AwsLogin::Error) { AwsLogin.select_targets(@targets, %w[servant nope]) }
     assert_includes error.message, 'No login target matches "nope"'
-  end
-
-  private
-
-  def labels(targets)
-    targets.map { |target| target[:label] }
   end
 end
 
