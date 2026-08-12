@@ -32,25 +32,30 @@ in the background instead, so the user gets the URL and the code while the comma
 
 For each login target:
 
-1. Start `aws sso login --profile <profile> --use-device-code` as a background Bash command
-   with a 600000ms timeout. Start every target before reporting anything, so all of them
-   are waiting at once.
-2. Poll each command's output until the verification URL and the code appear (usually within
-   a few seconds). The output looks like:
+1. Start `aws sso login --profile <profile> --use-device-code --no-browser` as a background
+   Bash command with a 600000ms timeout. Start every target before reporting anything, so all
+   of them are waiting at once. `--no-browser` matters: without it the CLI tries to open a
+   browser itself and never prints the autofill URL below.
+2. Poll each command's output until the autofill URL appears (usually within a few seconds).
+   The output looks like:
 
    ```
-   open the following URL:
+   Please visit the following URL:
 
    https://device.sso.us-east-1.amazonaws.com/
 
    Then enter the code:
 
    ABCD-EFGH
+
+   Alternatively, you may visit the following URL which will autofill the code upon loading:
+   https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH
    ```
 3. Report every target in one message before waiting on any of them, as a list of
-   `<sso-session or profile> covering <profiles>` with its URL and its code, so the user can
-   work through them without switching back and forth. Codes expire in a few minutes, so do
-   not withhold one while waiting on another.
+   `<sso-session or profile> covering <profiles>` with the autofill URL, so the user can just
+   click through without copying a code. Give the plain URL and code too, as a fallback for
+   when the autofill URL doesn't carry over (e.g. pasted into a different device). Codes
+   expire in a few minutes, so do not withhold one while waiting on another.
 4. Poll the background commands until each exits. Report each one as it finishes.
 5. Verify with `aws sts get-caller-identity --profile <name>` for every profile the targets
    cover, and end with a one-line summary per profile: name, account, role, fresh or failed.
@@ -68,7 +73,7 @@ awslogin login --use-device-code   # device code flow, all targets in sequence
 ## A profile name was given
 
 Do the same thing for that profile's target only: background device code login, surface the
-URL and code, wait, then `aws sts get-caller-identity --profile <name>`. Refresh
+autofill URL, wait, then `aws sts get-caller-identity --profile <name>`. Refresh
 unconditionally rather than guessing whether the token is still valid; SSO tokens expire
 roughly daily.
 
