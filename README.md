@@ -16,13 +16,10 @@ Symlinks `/awslogin` into `~/.claude/skills/awslogin/` and `awslogin` into `~/bi
 
 ```bash
 awslogin list                      # login targets: one sso-session and the profiles it covers
-awslogin login                     # refresh every target, browser flow
-awslogin login --use-device-code   # refresh every target, device code flow
+awslogin login                     # refresh every target, device code flow
 ```
 
-`/awslogin [profile]` does the same from Claude Code, but backgrounds each login as a device
-code flow and surfaces the URL and code up front, since the browser flow needs a click
-Claude cannot perform.
+`/awslogin [profile]` does the same from Claude Code, but backgrounds each login and surfaces the URL and code up front.
 
 ## Why this exists
 

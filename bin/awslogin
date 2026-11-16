@@ -99,10 +99,9 @@ end
 if $PROGRAM_NAME == __FILE__
   flags, words = ARGV.partition { |arg| arg.start_with?("-") }
   command = %w[list login].include?(words.first) ? words.shift : "login"
-  device_code = flags.delete("--use-device-code")
 
   unless flags.empty?
-    warn "Usage: awslogin [list|login] [name ...] [--use-device-code]"
+    warn "Usage: awslogin [list|login] [name ...]"
     exit 2
   end
 
@@ -135,9 +134,9 @@ if $PROGRAM_NAME == __FILE__
   targets.each do |target|
     puts "\n==> #{AwsLogin.describe(target)}"
     argv = ["aws", "sso", "login", "--profile", target[:profiles].first]
-    # --no-browser makes the CLI print a URL that autofills the device code.
+    # Always use the device code flow, local or remote. --no-browser makes the CLI print a URL that autofills the device code.
     # Without it, the CLI tries to launch a browser and never prints that URL.
-    argv.push("--use-device-code", "--no-browser") if device_code
+    argv.push("--use-device-code", "--no-browser")
     next if system(*argv)
 
     failed += 1

@@ -254,15 +254,7 @@ class CliTest < Minitest::Test
       status, output = run_cli(home, "amfm", env: env)
       assert_equal 0, status
       assert_includes output, "==> sso-session amfm-sso: amfm-production, amfm-dns, AMFM-staging"
-      assert_equal ["sso login --profile amfm-production"], File.read(log).split("\n")
-    end
-  end
-
-  def test_the_device_code_flag_composes_with_a_name
-    with_fake_aws do |home, log, env|
-      status, = run_cli(home, "login", "servant", "--use-device-code", env: env)
-      assert_equal 0, status
-      assert_equal ["sso login --profile servant --use-device-code --no-browser"], File.read(log).split("\n")
+      assert_equal ["sso login --profile amfm-production --use-device-code --no-browser"], File.read(log).split("\n")
     end
   end
 
@@ -270,7 +262,7 @@ class CliTest < Minitest::Test
     with_fake_aws do |home, log, env|
       status, = run_cli(home, "login", "amfm", "servant", env: env)
       assert_equal 0, status
-      assert_equal ["sso login --profile servant", "sso login --profile amfm-production"],
+      assert_equal ["sso login --profile servant --use-device-code --no-browser", "sso login --profile amfm-production --use-device-code --no-browser"],
                    File.read(log).split("\n")
     end
   end
@@ -298,7 +290,7 @@ class CliTest < Minitest::Test
     with_config do |home|
       status, output = run_cli(home, "list", "--bogus")
       assert_equal 2, status
-      assert_includes output, "Usage: awslogin [list|login] [name ...] [--use-device-code]"
+      assert_includes output, "Usage: awslogin [list|login] [name ...]"
     end
   end
 

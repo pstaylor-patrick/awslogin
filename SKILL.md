@@ -65,12 +65,10 @@ For each login target:
 
 ## Refreshing logins from a terminal
 
-When the user is at a shell rather than in Claude Code, a human can approve the browser
-prompt directly, so tell them to run:
+When the user is at a shell rather than in Claude Code, tell them to run:
 
 ```sh
-awslogin login                     # browser flow, all targets in sequence
-awslogin login --use-device-code   # device code flow, all targets in sequence
+awslogin login                     # device code flow, all targets in sequence
 awslogin login amfm                # just the targets the name resolves to
 awslogin servant amfm              # `login` is the default command
 ```
