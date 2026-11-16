@@ -19,7 +19,7 @@ awslogin list                      # login targets: one sso-session and the prof
 awslogin login                     # refresh every target, device code flow
 ```
 
-`/awslogin [profile]` does the same from Claude Code, but backgrounds each login and surfaces the URL and code up front.
+`/awslogin [profile]` does the same from Claude Code, but backgrounds each login and surfaces the prefilled-code URL up front.
 
 ## Why this exists
 

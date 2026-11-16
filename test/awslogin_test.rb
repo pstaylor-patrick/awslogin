@@ -375,3 +375,40 @@ class InstallTest < Minitest::Test
     File.join(home, "bin", "awslogin")
   end
 end
+
+class FilterPromptTest < Minitest::Test
+  PROMPT = <<~OUT
+    Browser will not be automatically opened.
+    Please visit the following URL:
+
+    https://device.sso.us-east-1.amazonaws.com/
+
+    Then enter the code:
+
+    ABCD-EFGH
+
+    Alternatively, you may visit the following URL which will autofill the code upon loading:
+    https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH
+    Successfully logged into Start URL: https://example.awsapps.com/start
+  OUT
+
+  def filter(text)
+    require "stringio"
+    out = StringIO.new
+    AwsLogin.filter_prompt(StringIO.new(text), out)
+    out.string
+  end
+
+  def test_shows_only_the_autofill_url
+    assert_equal <<~OUT, filter(PROMPT)
+      Open this URL to sign in (the code is prefilled):
+      https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH
+      Successfully logged into Start URL: https://example.awsapps.com/start
+    OUT
+  end
+
+  def test_passes_unfamiliar_output_through_whole
+    text = "Please visit the following URL:\n\nhttps://x.example/\nSomething new: XYZ\n"
+    assert_equal text, filter(text)
+  end
+end

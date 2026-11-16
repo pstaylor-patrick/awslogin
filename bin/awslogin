@@ -94,6 +94,43 @@ module AwsLogin
     matched = names.flat_map { |name| resolve(targets, name) }
     targets.select { |target| matched.include?(target) }
   end
+
+  # The AWS CLI prints the device prompt twice: a bare URL plus a code to type, then a URL
+  # that prefills the code. Only the prefilled URL is worth showing, so the rest of the
+  # prompt is held back. Any line that is not part of that prompt flushes what was held,
+  # so an unfamiliar CLI output format is shown in full rather than swallowed.
+  PROMPT_LINE = Regexp.union(
+    /\A\s*\z/,
+    /\ABrowser will not be automatically opened\.\z/,
+    /\APlease visit the following URL:\z/,
+    /\AThen enter the code:\z/,
+    /\A[A-Z0-9]{4}-[A-Z0-9]{4}\z/,
+    %r{\Ahttps://\S+\z}
+  ).freeze
+  AUTOFILL_INTRO = /\AAlternatively, you may visit the following URL which will autofill/
+
+  def self.filter_prompt(input, output)
+    held = []
+    autofill_next = false
+    input.each_line do |line|
+      text = line.chomp
+      if autofill_next && text.start_with?("https://")
+        output.puts "Open this URL to sign in (the code is prefilled):", text
+        output.flush
+        held.clear
+        autofill_next = false
+      elsif text.match?(AUTOFILL_INTRO)
+        autofill_next = true
+      elsif text.match?(PROMPT_LINE)
+        held << line
+      else
+        output.write(*held, line)
+        output.flush
+        held.clear
+      end
+    end
+    output.write(*held)
+  end
 end
 
 if $PROGRAM_NAME == __FILE__
@@ -134,10 +171,11 @@ if $PROGRAM_NAME == __FILE__
   targets.each do |target|
     puts "\n==> #{AwsLogin.describe(target)}"
     argv = ["aws", "sso", "login", "--profile", target[:profiles].first]
-    # Always use the device code flow, local or remote. --no-browser makes the CLI print a URL that autofills the device code.
-    # Without it, the CLI tries to launch a browser and never prints that URL.
+    # Always the device code flow, local or remote. Without --no-browser the CLI tries to
+    # launch a browser and never prints the URL that autofills the code.
     argv.push("--use-device-code", "--no-browser")
-    next if system(*argv)
+    IO.popen(argv) { |io| AwsLogin.filter_prompt(io, $stdout) }
+    next if $?.success?
 
     failed += 1
     warn "login failed: #{AwsLogin.describe(target)}"

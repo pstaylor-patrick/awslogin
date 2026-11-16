@@ -55,9 +55,8 @@ For each login target:
    https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH
    ```
 3. Report every target in one message before waiting on any of them, as a list of
-   `<sso-session or profile> covering <profiles>` with the autofill URL, so the user can just
-   click through without copying a code. Give the plain URL and code too, as a fallback for
-   when the autofill URL doesn't carry over (e.g. pasted into a different device). Codes
+   `<sso-session or profile> covering <profiles>` with only the autofill URL, so the user can
+   just click through. Do not show the plain URL or the code to type by hand. Codes
    expire in a few minutes, so do not withhold one while waiting on another.
 4. Poll the background commands until each exits. Report each one as it finishes.
 5. Verify with `aws sts get-caller-identity --profile <name>` for every profile the targets
@@ -101,7 +100,7 @@ logs into nothing. Two ways a name is rejected, both exit 2:
 Do not retry a rejected name with a guess. Show the user the listed targets and ask which
 one they meant, or type more of the name.
 
-For each selected target: background device code login, surface the autofill URL, wait, then
+For each selected target: background device code login, surface only the autofill URL, wait, then
 `aws sts get-caller-identity --profile <name>`. Refresh unconditionally rather than guessing
 whether the token is still valid; SSO tokens expire roughly daily.
 
