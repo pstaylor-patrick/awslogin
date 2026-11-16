@@ -174,7 +174,7 @@ if $PROGRAM_NAME == __FILE__
     # Always the device code flow, local or remote. Without --no-browser the CLI tries to
     # launch a browser and never prints the URL that autofills the code.
     argv.push("--use-device-code", "--no-browser")
-    IO.popen(argv) { |io| AwsLogin.filter_prompt(io, $stdout) }
+    IO.popen(argv, err: %i[child out]) { |io| AwsLogin.filter_prompt(io, $stdout) }
     next if $?.success?
 
     failed += 1
